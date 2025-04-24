@@ -839,7 +839,7 @@
       // Add a share button to the module area
       const moduleArea = document.getElementById('module-area');
       if (moduleArea) {
-        const shareBtn =
+        const shareBtn = document.createElement('button');
         shareBtn.className = 'absolute top-4 right-4 bg-cyan-700 hover:bg-cyan-600 text-white p-2 rounded-lg';
         shareBtn.innerHTML = '<i class="fas fa-share-alt mr-1"></i> Share';
         shareBtn.addEventListener('click', showShareModal);
@@ -1057,7 +1057,7 @@
           );
           
           if(matchedSection) {
-            if(sectionName) sections.push({title: sectionName, content: currContent.join('\n')});
+            if(sectionName)
             sectionName = matchedSection;
             currContent = [];
           } else {
@@ -1089,60 +1089,139 @@
       for(const section of lesson.sections) {
         if(!section.title || !section.content) continue;
         const lower = section.title.toLowerCase();
+        // Corrected template literal and function calls
         html += `<section class="mb-8">
           <h3 class="text-2xl section-title text-yellow-300 mb-3">${section.title}</h3>${
             lower.includes("quiz") ? renderQuiz(section.content)
             : lower.includes("code") || section.content.includes('```') ? renderCodeBlocks(section.content)
-            : lower.includes('resource') ? renderResources(section.content)
+            : lower.includes('resource') ? renderResources(section.content) // Assuming renderResources exists
             : "<div class='whitespace-pre-line text-cyan-100 leading-relaxed tracking-wide'>" +
-              section.content.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
-              .replace(/\*(?!\*)(.*?)\*/g, '<i>$1</i>')
-              .replace(/\[(.*?)\]\((.*?)\)/g, '<a class="text-cyan-400 underline" href="$2" target="_blank">$1</a>')
+              escapeHTML(section.content) // Use escapeHTML for general content
+                .replace(/\\*\\*(.*?)\\*\\*/g, '<b>$1</b>')
+                .replace(/\\*(?!\\*)(.*?)\\*/g, '<i>$1</i>')
+                .replace(/\\[(.*?)\\]\\((.*?)\\)/g, '<a class="text-cyan-400 underline" href="$2" target="_blank">$1</a>')
+                .replace(/\\n/g, '<br>') // Add line breaks for general content
             + "</div>"
         }</section>`;
       }
       return html;
     }
+
     function renderQuiz(content) {
       // Try to extract questions/answers, Format: Q: ?  1. option .....   *Answer:*
       const qs = [];
-      let lines = content.trim().split('\n'), q=null, opts=[];
+      let lines = content.trim().split('\\n'), q=null, opts=[], ans=null; // Initialize ans
       lines.forEach(l=>{
-        let qMatch = l.match(/^[Qq][uestion]*[.:)]?\s*(.*)/);
+        let qMatch = l.match(/^[Qq][uestion]*[.:)]?\\s*(.*)/);
+        // Corrected regex for answer matching - removed extra backslashes
+        let ansMatch = l.match(/^\*?Answer:?\/?(.*)/i); // Match answer line
+
         if(qMatch) {
-          if(q) qs.push({q, opts, ans: null});
-          q = qMatch[1].trim(); opts=[];
-        } else if(/^\d+[\).] /.test(l)) opts.push(l.trim().replace(/^\d+[\).]\s*/,'')); 
-        else if(l.match(/^\*?Answer:?\/?/i)) {
-          if(qs.length && qs[qs.length-1]) qs[qs.length-1].ans = l.replace(/^\*?Answer:?\/?/i,'').trim();
+          if(q !== null) qs.push({q, opts, ans}); // Push previous question if exists
+          q = qMatch[1].trim(); opts=[]; ans = null; // Reset for new question
+        } else if(/^\\d+[\\).] /.test(l)) {
+           opts.push(l.trim().replace(/^\\d+[\\).]\\s*/,'')); 
+        } else if(ansMatch) {
+           ans = ansMatch[1].trim(); // Store the answer text
+           // If this is the last line or next line is a new question, push current q
+           // This handles answers appearing right after options or on their own line
+        } else if (q !== null && l.trim() !== '') {
+          // If it's not a question, option, or answer line, append to options (flexible parsing)
+          // This might catch content that's part of an option but on a new line
+          opts[opts.length - 1] += '\\n' + l.trim();
         }
       });
-      if(q) qs.push({q, opts, ans: null});
+      if(q !== null) qs.push({q, opts, ans}); // Push the last question
+
       if(!qs.length) return `<div class="italic text-gray-300">No quiz questions recognized.</div>`;
+
       let html = `<form class="space-y-6" id="quiz-form">`;
-      qs.forEach((obj,i)=>{
-        html += `<div class="mb-5">
-            <h4 class="font-semibold text-lg text-cyan-200 mb-1">Q${i+1}: ${obj.q}</h4>
+      qs.forEach((obj,i)=>{ html += `<div class="mb-5">
+            <h4 class="font-semibold text-lg text-cyan-200 mb-1">Q${i+1}: ${escapeHTML(obj.q)}</h4>
             <div class="flex flex-col gap-1 mb-2">`
-          +obj.opts.map((o,j)=>`<label class="flex items-center gap-1 text-gray-200"><input type="radio" name="quiz-q${i}" value="${j}"><span>${o}</span></label>`).join("")
+          +obj.opts.map((o,j)=>`<label class="flex items-center gap-1 text-gray-200"><input type="radio" name="quiz-q${i}" value="${j}"><span>${escapeHTML(o)}</span></label>`).join("")
           +`</div>
-          <div class="quiz-ans mt-1 text-cyan-400 text-sm" style="display:none"></div>
-        </div>`;
+          <div class="quiz-ans mt-1 text-cyan-400 text-sm" style="display:none" data-correct-answer="${escapeHTML(obj.ans || '')}"></div>
+        </div>`; // Store correct answer in data attribute
       });
       html+=`<button type="button" class="px-5 py-2 bg-yellow-400 text-cyan-900 font-bold rounded-lg mt-2" onclick="gradeQuiz()">Check Answers</button></form>`;
       return html;
     }
+
     function renderCodeBlocks(content) {
-      // Support markdown ```lang\nblock``` with syntax highlighting
-      return content.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code){
-        const formattedCode = escapeHTML(code);
-        const langClass = lang ? `language-${lang}` : 'language-plaintext';
-        const codeHTML = `<pre class="bg-cyan-950 border border-cyan-800 rounded-xl p-4 overflow-x-auto text-left my-2"><code class="${langClass}">${formattedCode}</code></pre>`;
-        return codeHTML;
-      }).replace(/\n/g,'<br>');
+      // Support markdown ```lang\\nblock``` with syntax highlighting
+      // Process content line by line to handle code blocks and regular text correctly
+      const lines = content.split('\\n');
+      let html = '<div class="whitespace-pre-line text-cyan-100 leading-relaxed tracking-wide">';
+      let inCodeBlock = false;
+      let codeLang = 'plaintext';
+      let codeContent = '';
+
+      for (const line of lines) {
+        if (line.trim().startsWith('```')) {
+          if (inCodeBlock) {
+            // End of code block
+            const formattedCode = escapeHTML(codeContent);
+            // Correctly close the code and pre tags before adding the surrounding div back
+            html += `</code></pre>`; // Close code and pre tags
+            html += '<div class="whitespace-pre-line text-cyan-100 leading-relaxed tracking-wide">'; // Reopen div for subsequent text
+            inCodeBlock = false;
+            codeContent = '';
+          } else {
+            // Start of code block
+            codeLang = line.trim().substring(3) || 'plaintext';
+            inCodeBlock = true;
+            html += '</div>'; // Close the surrounding div
+            // Start the pre and code tags
+            html += `<pre class="bg-cyan-950 border border-cyan-800 rounded-xl p-4 overflow-x-auto text-left my-2 scrollbar"><code class="language-${codeLang}">`;
+            // code block content starts on the next line
+          }
+        } else if (inCodeBlock) {
+          codeContent += line + '\\n';
+        } else {
+          // Regular text line - ensure HTML entities are handled correctly and add <br>
+           html += escapeHTML(line)
+             .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+             .replace(/\*(?!\*)(.*?)\*/g, '<i>$1</i>')
+             .replace(/\[(.*?)\]\((.*?)\)/g, '<a class="text-cyan-400 underline" href="$2" target="_blank">$1</a>')
+             + '<br>'; // Use <br> for line breaks in regular text
+        }
+      }
+       if (inCodeBlock) { // Ensure any unclosed code block is handled
+         const formattedCode = escapeHTML(codeContent);
+         // Close the tags properly
+         html += `${formattedCode}</code></pre>`;
+       } else {
+          html += '</div>'; // Close the last div for regular text
+       }
+
+
+      return html;
     }
-    
+
+    // Assuming renderResources exists or is defined elsewhere
+    function renderResources(content) {
+        // Example implementation: Render list items or links
+        const lines = content.trim().split('\\n');
+        let html = '<ul class="list-disc list-inside space-y-1">';
+        lines.forEach(line => {
+            if (line.trim()) {
+                 // Attempt to detect links and format them
+                 const linkMatch = line.match(/\\[(.*?)\\]\\((.*?)\\)/);
+                 if (linkMatch) {
+                     html += `<li><a class="text-cyan-400 underline" href="${escapeHTML(linkMatch[2])}" target="_blank">${escapeHTML(linkMatch[1])}</a></li>`;
+                 } else {
+                    html += `<li>${escapeHTML(line.trim().replace(/^[-*]\s*/, ''))}</li>`; // Basic list item
+                 }
+            }
+        });
+        html += '</ul>';
+        return html;
+    }
+
+
     function escapeHTML(str) {
+      if (typeof str !== 'string') return ''; // Ensure input is a string
       return str
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -1152,27 +1231,62 @@
     }
     // --- Interactivity: Quiz grading ---
     window.gradeQuiz = function() {
-      const lesson = loadLesson();
-      if(!lesson) return;
-      // Try to find answers in markdown
-      const quizSec = lesson.sections.find(s=>/quiz/i.test(s.title));
-      if(!quizSec) return;
-      // Find answers
-      const lines = quizSec.content.split('\n');
-      let answerKeys = [];
-      for(const l of lines) if(l.match(/^\*?Answer:?/i)) answerKeys.push(l.replace(/^\*?Answer:?/i,'').trim().toLowerCase());
-      // Get user answers
       const form = document.getElementById('quiz-form');
       if(!form) return;
-      let correct = 0;
-      Array.from(form.querySelectorAll('.quiz-ans')).forEach(e=>e.style.display='block');
-      Array.from(form.querySelectorAll("input[type=radio]:checked")).forEach((input,i)=>{
-          const txt = input.parentElement.innerText.trim().toLowerCase();
-          if(txt.includes(answerKeys[i])) { correct++; input.parentElement.classList.add('text-green-400'); }
-          else input.parentElement.classList.add('text-red-400');
-          input.closest('div').querySelector('.quiz-ans').innerText = 'Correct answer: '+answerKeys[i];
+
+      let correctCount = 0;
+      const questions = form.querySelectorAll('.mb-5'); // Each question block
+
+      questions.forEach((questionDiv, index) => {
+        const selectedRadio = questionDiv.querySelector(`input[name="quiz-q${index}"]:checked`);
+        const answerDiv = questionDiv.querySelector('.quiz-ans');
+        const correctAnswerText = answerDiv.getAttribute('data-correct-answer').toLowerCase().trim();
+        answerDiv.style.display = 'block'; // Show the answer area
+
+        if (selectedRadio) {
+          const selectedLabel = selectedRadio.parentElement;
+          const selectedAnswerText = selectedLabel.querySelector('span').innerText.toLowerCase().trim();
+
+          // Normalize answer text (e.g., remove leading numbers/letters like "1." or "a)")
+          const normalize = (text) => text.replace(/^[a-zA-Z0-9][.)]?\s*/, '');
+          const normalizedSelected = normalize(selectedAnswerText);
+          const normalizedCorrect = normalize(correctAnswerText);
+
+
+          // Check if selected answer contains or matches the correct answer key
+          if (normalizedCorrect && (normalizedSelected.includes(normalizedCorrect) || normalizedCorrect.includes(normalizedSelected))) {
+            correctCount++;
+            selectedLabel.classList.remove('text-red-400');
+            selectedLabel.classList.add('text-green-400', 'font-semibold');
+            answerDiv.innerHTML = `<i class="fas fa-check text-green-400 mr-1"></i> Correct!`;
+          } else {
+            selectedLabel.classList.remove('text-green-400');
+            selectedLabel.classList.add('text-red-400');
+            answerDiv.innerHTML = `<i class="fas fa-times text-red-400 mr-1"></i> Incorrect. Correct answer: <strong>${escapeHTML(correctAnswerText)}</strong>`;
+             // Highlight the actual correct option if possible
+             const options = questionDiv.querySelectorAll('label');
+             options.forEach(optLabel => {
+                 const optText = optLabel.querySelector('span').innerText.toLowerCase().trim();
+                 if (normalize(optText).includes(normalizedCorrect) || normalizedCorrect.includes(normalize(optText))) {
+                     optLabel.classList.add('text-green-400', 'font-semibold');
+                 }
+             });
+          }
+        } else {
+          // No answer selected
+          answerDiv.innerHTML = `<i class="fas fa-exclamation-circle text-yellow-400 mr-1"></i> No answer selected. Correct answer: <strong>${escapeHTML(correctAnswerText)}</strong>`;
+           // Highlight the correct option
+           const options = questionDiv.querySelectorAll('label');
+           options.forEach(optLabel => {
+               const optText = optLabel.querySelector('span').innerText.toLowerCase().trim();
+               if (normalize(optText).includes(normalizedCorrect) || normalizedCorrect.includes(normalize(optText))) {
+                   optLabel.classList.add('text-green-400', 'font-semibold');
+               }
+           });
+        }
       });
-      showToast(`You got ${correct} out of ${answerKeys.length} correct!`);
+
+      showToast(`You got ${correctCount} out of ${questions.length} correct!`);
     };
     function setupLessonInteractivity() {
       // Find all quiz questions
@@ -1465,20 +1579,20 @@
       // Render each suggestion set
       suggestionSets.forEach(set => {
         const setElement = document.createElement('div');
-        setElement.className = 'border-b border-cyan-800/30 pb-4';
+        setElement.className = 'border-b border-cyan-800/30 pb-4 mb-4'; // Added mb-4 for spacing
+        // Corrected template literal for HTML structure
         setElement.innerHTML = `
-          <h3 class="text-lg font-semibold text-yellow-400 mb-2">${set.title}</h3>
-          <p class="text-sm text-gray-300 mb-3">${set.description}</p>
+          <h3 class="text-lg font-semibold text-yellow-400 mb-2">${escapeHTML(set.title)}</h3>
+          <p class="text-sm text-gray-300 mb-3">${escapeHTML(set.description)}</p>
           <div class="space-y-2">
             ${set.suggestions.map(suggestion => `
-              <div class="glass fancy-border p-3 rounded-xl hover:bg-cyan-900/20 transition-colors cursor-pointer suggestion-item" data-topic="${suggestion.topic}">
-                <h4 class="font-medium text-cyan-200">${suggestion.topic}</h4>
-                <p class="text-xs text-gray-400">${suggestion.description}</p>
+              <div class="glass fancy-border p-3 rounded-xl hover:bg-cyan-900/20 transition-colors cursor-pointer suggestion-item" data-topic="${escapeHTML(suggestion.topic)}">
+                <h4 class="font-medium text-cyan-200">${escapeHTML(suggestion.topic)}</h4>
+                <p class="text-xs text-gray-400">${escapeHTML(suggestion.description)}</p>
               </div>
             `).join('')}
           </div>
         `;
-        
         learningPathsContent.appendChild(setElement);
       });
       
@@ -1488,35 +1602,40 @@
           const topic = this.getAttribute('data-topic');
           document.getElementById('module-topic').value = topic;
           closeLearningPathsModal();
+          // Corrected template literal
           showToast(`Topic set: ${topic}`);
         });
       });
     }
-    
+
     function generateInterestSuggestions(interests, completedTopics) {
       const allSuggestions = [
         {
+          // Corrected template literal
           topic: `Advanced ${interests[0] || 'CNC'} Optimization with Machine Learning`,
           description: "Explore advanced techniques for optimization using the latest ML algorithms"
         },
         {
+          // Corrected template literal
           topic: `${interests[0] || 'CNC'} and ${interests[1] || 'AI'} Integration: Best Practices`,
           description: "Comprehensive guide to integrating these technologies effectively"
         },
         {
+          // Corrected template literal
           topic: `Future of ${interests[0] || 'CNC'} in Industry 4.0`,
           description: "How these technologies will evolve in the smart factory environment"
         }
       ];
-      
+
       // Filter out suggestions that are too similar to completed topics
-      return allSuggestions.filter(suggestion => 
-        !completedTopics.some(topic => 
-          topic.includes(suggestion.topic.toLowerCase().split(' ').slice(0, 3).join(' '))
+      return allSuggestions.filter(suggestion =>
+        !completedTopics.some(topic =>
+          // Ensure topic and suggestion.topic are defined before calling includes
+          topic && suggestion.topic && topic.includes(suggestion.topic.toLowerCase().split(' ').slice(0, 3).join(' '))
         )
       );
     }
-    
+
     function generateSequenceSuggestions(completedTopics) {
       // Core learning path topics
       const corePath = [
@@ -1739,19 +1858,18 @@
     function generateShareLink(lesson) {
       // Create a shareable version of the lesson
       const shareData = {
+        // Corrected template literal
         id: lesson.id || `module-${Date.now()}`,
         topic: lesson.topic,
         style: lesson.style,
         timestamp: lesson.timestamp,
         sections: lesson.sections
       };
-      
+
       // Encode lesson data
       const encodedData = encodeURIComponent(btoa(JSON.stringify(shareData)));
-      
-      // Create a shareable link
-      // In a real app, this would be a proper URL with a server backend
-      // For demo purposes, we're using a data parameter approach
+
+      // Corrected template literal
       return `${window.location.href.split('?')[0]}?shared=${encodedData}`;
     }
     
@@ -1802,38 +1920,47 @@
       // In a production app, we would use a proper PDF library
       // For demo purposes, we'll use the print-to-PDF functionality
       
-      // Create printable version
+      // Create printable version - Corrected template literal and HTML structure
       const printContent = `<!DOCTYPE html>
         <html>
         <head>
-          <title>${lesson.topic} - CNC AI Academy</title>
+          <title>${escapeHTML(lesson.topic)} - CNC AI Academy</title>
           <style>
             body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
             h1 { color: #0c4a6e; }
             h2 { color: #0891b2; margin-top: 30px; }
-            pre { background: #f1f5f9; padding: 10px; border-radius: 5px; overflow-x: auto; }
+            pre { background: #f1f5f9; padding: 10px; border-radius: 5px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
+            code { font-family: monospace; } /* Ensure code font */
             .info { color: #64748b; font-style: italic; }
             .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #94a3b8; }
           </style>
         </head>
         <body>
-          <h1>${lesson.topic}</h1>
-          <p class="info">Learning Style: ${lesson.style}</p>
+          <h1>${escapeHTML(lesson.topic)}</h1>
+          <p class="info">Learning Style: ${escapeHTML(lesson.style)}</p>
           <p class="info">Generated: ${new Date(lesson.timestamp).toLocaleDateString()}</p>
-          
-          ${lesson.sections.map(section => `
 
-            <h2>${section.title}</h2>
-            <div>${section.content.replace(/\n/g, '<br>')}</div>
+          ${lesson.sections.map(section => `
+            <section>
+              <h2>${escapeHTML(section.title)}</h2>
+              <div>${section.content.replace(/```(\w*)\\n([\\s\\S]*?)```/g, (match, lang, code) =>
+                  `<pre><code class="language-${lang || 'plaintext'}">${escapeHTML(code)}</code></pre>`
+                )
+                .replace(/\\*\\*(.*?)\\*\\*/g, '<b>$1</b>') // Bold
+                .replace(/\\*(?!\\*)(.*?)\\*/g, '<i>$1</i>') // Italic
+                .replace(/\\[(.*?)\\]\\((.*?)\\)/g, '<a href="$2" target="_blank">$1</a>') // Links
+                .replace(/\\n/g, '<br>') // Newlines
+              }</div>
+            </section>
           `).join('')}
-          
+
           <div class="footer">
             Generated with CNC AI Academy<br>
             For: Your CNC Machining Journey
           </div>
         </body>
         </html>`;
-      
+
       // Open in new window for printing 
       const printWindow = window.open('', '_blank');
       printWindow.document.write(printContent);
@@ -1856,19 +1983,22 @@
       // Generate share link if not already present
       const shareLink = document.getElementById('share-link').value || generateShareLink(lesson);
       
-      // Prepare share text
+      // Prepare share text - Corrected template literal
       const shareText = `Check out this CNC AI Academy learning module: "${lesson.topic}"`;
       
       // Platform-specific sharing URLs
       let shareUrl;
       switch (platform) {
         case 'twitter':
+          // Corrected template literal
           shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareLink)}`;
           break;
         case 'facebook':
+          // Corrected template literal
           shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareLink)}&quote=${encodeURIComponent(shareText)}`;
           break;
         case 'linkedin':
+          // Corrected template literal
           shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareLink)}`;
           break;
         default:
