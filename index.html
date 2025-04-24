@@ -1,0 +1,1883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CNC AI Academy - Interactive Learning Platform</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Libraries -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/roboto@3.3.1/400.css"/>
+  <!-- Highlight.js for syntax highlighting -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/atom-one-dark.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/lib/languages/gcode.min.js"></script>
+  <!-- Chart.js for future visualization needs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    body {
+      font-family: 'Roboto', Arial, sans-serif;
+      background: linear-gradient(135deg, #151a21 0%, #2c5364 100%);
+      min-height: 100vh;
+    }
+    .glass {
+      background: rgba(44,83,100,0.12);
+      backdrop-filter: blur(18px) saturate(180%) contrast(1.05);
+    }
+    .fancy-border {
+      border: 1.5px solid rgba(255,255,255,0.12);
+      border-radius: 1.25rem;
+    }
+    .section-title {
+      letter-spacing: 0.03em;
+    }
+    .animate-pop {
+      animation: pop 0.7s cubic-bezier(.56,1.34,.73,.97);
+    }
+    @keyframes pop {
+      0% { opacity: 0; transform: scale(.96);}
+      50% { opacity: 1; transform: scale(1.04);}
+      100% {opacity:1; transform:scale(1);}
+    }
+    .scrollbar::-webkit-scrollbar {
+      width: 8px;
+      background: #263848;
+      border-radius: 8px;
+    }
+    .scrollbar::-webkit-scrollbar-thumb {
+      background: #1D283A;
+      border-radius: 8px;
+    }
+    /* For dark mode toggle highlight ring */
+    .focus-ring:focus {
+      outline: 2px solid #5eead4;
+      outline-offset: 2px;
+    }
+    /* Loading spinner animation */
+    .loading-spinner {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border: 3px solid rgba(94, 234, 212, 0.3);
+      border-radius: 50%;
+      border-top-color: #5eead4;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    /* Progress bar styling */
+    .progress-bar {
+      height: 4px;
+      background: rgba(94, 234, 212, 0.2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-bar-inner {
+      height: 100%;
+      background: #5eead4;
+      width: 0%;
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+    /* Pulse animation for loading state */
+    .pulse {
+      animation: pulse 1.5s ease infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+  </style>
+</head>
+<body class="text-gray-100 scrollbar min-h-screen">
+  <!-- Birthday Modal -->
+  <div id="birthday-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 transition-opacity" style="display: none;">
+    <div class="glass fancy-border px-8 py-9 rounded-3xl flex flex-col items-center text-center relative animate-pop max-w-md">
+      <button onclick="closeBirthday()" class="absolute top-3 right-4 text-2xl text-cyan-200 hover:text-cyan-300 focus:outline-none"><i class="fas fa-times"></i></button>
+      <div class="mb-4 text-5xl text-yellow-400 animate-bounce"><i class="fas fa-birthday-cake"></i></div>
+      <h1 class="text-3xl font-bold mb-3 text-cyan-200">Happy Birthday!</h1>
+      <p class="text-lg text-gray-200 mb-4">
+        Wishing you an amazing year of learning, discovery, and success in the world of CNC and AI.<br>
+        <span class="font-semibold text-yellow-400">From your awesome family!</span>
+      </p>
+      <video controls playsinline webkit-playsinline class="rounded-lg shadow-lg mb-2 w-full max-h-64 hidden" id="bday-video">
+        <source src="" type="video/mp4">
+        Your browser does not support MP4 video.
+      </video>
+      <button class="mt-4 px-6 py-2 bg-cyan-600 hover:bg-cyan-400 text-gray-100 rounded-lg font-semibold transition" onclick="closeBirthday()">Start Exploring</button>
+    </div>
+  </div>
+  <!-- App Bar -->
+  <header class="w-full p-4 flex items-center justify-between glass fancy-border shadow-lg z-40 top-0 sticky" style="backdrop-filter: blur(12px);">
+    <div class="flex items-center gap-3">
+      <span class="text-3xl text-yellow-400 mr-2"><i class="fas fa-cogs"></i></span>
+      <span class="font-bold text-xl tracking-wide">CNC AI Academy</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <span id="online-status" class="text-sm mr-2" title="Online Mode"><i class="fas fa-wifi text-green-400"></i></span>
+      <button onclick="toggleTheme()" id="theme-toggle" aria-label="Toggle dark mode" class="focus-ring"><i class="fas fa-moon"></i></button>
+      <a href="#" onclick="aboutModal()" class="ml-2 text-cyan-200 hover:bg-cyan-700 py-2 px-4 rounded-xl transition flex font-semibold"><i class="fas fa-graduation-cap mr-1"></i>About</a>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main id="main-content" class="max-w-6xl mx-auto px-3 py-6 grid md:grid-cols-3 gap-6 relative">
+    <!-- SIDEBAR: Module Library + Generator + Settings -->
+    <aside class="col-span-full md:col-span-1 glass fancy-border p-5 rounded-3xl min-h-[680px]">
+      <!-- Profile and API -->
+      <section class="mb-4">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="text-xl text-yellow-400"><i class="fas fa-user-cog"></i></span>
+          <span class="font-semibold text-lg">Your AI Setup</span>
+        </div>
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-semibold text-cyan-200" for="api-key-input">OpenRouter API Key</label>
+          <input type="password" id="api-key-input" placeholder="Enter your API key" class="w-full text-gray-800 px-3 py-2 rounded-lg mb-2 focus:ring-cyan-400 border border-[rgba(255,255,255,0.1)]" autocomplete="off"/>
+          <button id="save-api-btn" class="bg-cyan-600 hover:bg-cyan-400 py-1.5 px-4 rounded-md font-bold text-sm transition text-gray-100">Save Key</button>
+        </div>
+        <div class="mt-2">
+          <label class="text-sm font-semibold text-cyan-200" for="model-select">Active Model</label>
+          <select id="model-select" class="w-full text-gray-800 px-3 py-2 rounded-lg mt-1 mb-2 border border-[rgba(255,255,255,0.1)] bg-gray-50">
+            <option value="openrouter/auto">AutoGPT (recommended)</option>
+            <option value="openai/gpt-4">GPT-4</option>
+            <option value="google/gemini-pro">Gemini Pro</option>
+            <option value="anthropic/claude-3-haiku">Claude 3 Haiku</option>
+            <option value="anthropic/claude-3-opus">Claude 3 Opus</option>
+          </select>
+          <input type="text" id="model-custom" placeholder="Add custom model..." class="w-full text-gray-800 px-2 py-2 rounded-lg border border-[rgba(255,255,255,0.1)] bg-gray-50" />
+          <button id="add-model-btn" class="mt-1 bg-cyan-700 hover:bg-cyan-500 py-1 px-4 rounded-md text-xs font-bold text-gray-100">Add Model</button>
+        </div>
+      </section>
+      
+      <!-- Module Library Section -->
+      <section class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xl text-yellow-400"><i class="fas fa-book"></i></span>
+            <span class="font-semibold text-lg">My Learning Library</span>
+          </div>
+          <button id="library-toggle" class="text-gray-300 hover:text-cyan-300 transition">
+            <i class="fas fa-chevron-down"></i>
+          </button>
+        </div>
+        
+        <div id="library-content" class="glass fancy-border p-3 rounded-xl" style="display: none;">
+          <div class="flex mb-3">
+            <input type="text" id="library-search" placeholder="Search modules..." class="w-full text-gray-800 px-3 py-2 text-sm rounded-lg border border-[rgba(255,255,255,0.1)]" />
+          </div>
+          
+          <div class="flex gap-1 mb-3 text-xs">
+            <button class="category-filter bg-cyan-800 px-2 py-1 rounded-md" data-category="all">All</button>
+            <button class="category-filter px-2 py-1 rounded-md" data-category="favorites">Favorites</button>
+            <button class="category-filter px-2 py-1 rounded-md" data-category="recent">Recent</button>
+          </div>
+          
+          <p class="text-xs text-gray-300 mb-2">Found <span id="module-count">0</span> modules</p>
+          
+          <ul id="module-list" class="space-y-3 max-h-64 overflow-y-auto scrollbar pr-1">
+            <!-- Module items will be rendered here -->
+          </ul>
+          
+          <p id="no-modules-msg" class="text-center text-gray-400 py-3 text-sm">
+            <i class="fas fa-info-circle mr-1"></i> No saved modules yet
+          </p>
+        </div>
+      </section>
+      
+      <!-- Module Generator -->
+      <section class="mb-4">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-lg text-yellow-400"><i class="fas fa-magic"></i></span>
+          <span class="font-semibold text-lg">Generate New Module</span>
+        </div>
+        <form id="module-gen-form" class="flex flex-col gap-3">
+          <input type="text" id="module-topic" class="rounded-lg px-3 py-2 text-gray-800 border border-[rgba(255,255,255,0.1)]" placeholder="Enter CNC + AI topic (e.g. Toolpath optimization with AI)" required/>
+          <select id="learning-style" class="rounded-lg px-3 py-2 border border-[rgba(255,255,255,0.1)] bg-gray-50 text-gray-800">
+            <option value="theoretical">Theoretical</option>
+            <option value="project">Project-based</option>
+            <option value="practical">Practical Application</option>
+          </select>
+          <button type="submit" class="mt-1 py-2 px-5 bg-yellow-400 hover:bg-yellow-300 text-cyan-900 font-bold rounded-lg shadow-lg transition">Generate Module</button>
+        </form>
+        <div id="module-loading" style="display:none;" class="text-center text-cyan-200 mt-3">
+          <i class="fas fa-spinner fa-spin"></i> Generating Lesson...
+        </div>
+      </section>
+      
+      <!-- Templates button -->
+      <button id="show-templates-btn" class="bg-indigo-700 w-full hover:bg-indigo-500 py-2 rounded-lg font-bold text-gray-100 mb-4">
+        <i class="fas fa-th-large mr-1"></i> Browse Templates
+      </button>
+      
+      <!-- Module Download/Reset -->
+      <section>
+        <button id="download-module" class="bg-cyan-700 w-full hover:bg-cyan-500 py-2 rounded-lg font-bold text-gray-100 mb-2" disabled><i class="fas fa-download"></i> Download Current Lesson</button>
+        <button id="reset-module" class="bg-gray-800 w-full hover:bg-gray-700 py-2 rounded-lg font-bold text-gray-100" disabled>Clear Current Lesson</button>
+      </section>
+    </aside>
+    <!-- MODULE CONTENT -->
+    <section class="col-span-full md:col-span-2 glass min-h-[680px] py-7 px-6 rounded-3xl fancy-border shadow-xl relative flex flex-col" id="module-area">
+      <div id="module-placeholder" class="flex flex-col items-center justify-center h-full opacity-90">
+        <span class="text-7xl text-cyan-300 mb-4"><i class="fas fa-lightbulb"></i></span>
+        <div class="text-center">
+          <h2 class="text-2xl font-bold mb-2 section-title text-cyan-200">Welcome to CNC AI Academy!</h2>
+          <p class="text-gray-200 mb-3">
+            Create a customized AI-powered learning module about CNC machining.<br>
+            Use the generator on the left to get started!
+          </p>
+        </div>
+      </div>
+      <!-- Dynamic Module Content Will be injected here -->
+      <div id="module-content" style="display:none;"></div>
+    </section>
+  </main>
+
+  <!-- About Modal -->
+  <div id="about-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 transition-opacity" style="display:none;">
+    <div class="glass fancy-border px-10 py-8 rounded-3xl text-center relative max-w-lg animate-pop">
+      <button onclick="closeAbout()" class="absolute top-3 right-3 text-2xl text-cyan-200 hover:text-cyan-300 focus:outline-none"><i class="fas fa-times"></i></button>
+      <div class="flex items-center justify-center mb-3">
+        <span class="text-3xl text-yellow-400"><i class="fas fa-cogs"></i></span>
+      </div>
+      <h2 class="text-2xl font-bold mb-2 text-cyan-200">About CNC AI Academy</h2>
+      <p class="text-gray-200 mb-2">
+        CNC AI Academy is an interactive, AI-powered learning platform for machinists who want to master the integration of Artificial Intelligence in modern machining. Generate custom learning modules, explore real-world projects, and advance your CNC skills with the help of top AI models.
+      </p>
+      <dl class="text-cyan-100 text-sm">
+        <dt class="font-semibold">Features:</dt>
+        <dd class="mb-1">• Module generator leveraging OpenRouter API</dd>
+        <dd class="mb-1">• Interactive, downloadable course pages</dd>
+        <dd class="mb-1">• Customizable lesson format and content</dd>
+       
+      </dl>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 flex items-center bg-cyan-900 text-cyan-200 px-6 py-3 rounded-xl shadow-xl text-lg font-semibold transition-opacity opacity-0"></div>
+
+  <!-- Preview Module Modal -->
+  <div id="preview-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 transition-opacity" style="display: none;">
+    <div class="glass fancy-border p-6 rounded-3xl relative max-w-3xl max-h-[80vh] overflow-y-auto animate-pop w-[90%]">
+      <button onclick="closePreview()" class="absolute top-3 right-3 text-2xl text-cyan-200 hover:text-cyan-300 focus:outline-none"><i class="fas fa-times"></i></button>
+      <div class="mb-4">
+        <h2 class="text-2xl font-bold text-cyan-200 mb-1">Preview Your Module</h2>
+        <p class="text-gray-300 text-sm mb-4">Review your module before saving it to your learning dashboard.</p>
+      </div>
+      <div id="preview-content" class="scrollbar overflow-y-auto pr-2"></div>
+      <div class="flex justify-end mt-6 gap-3">
+        <button onclick="closePreview()" class="py-2 px-4 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg transition">Edit Further</button>
+        <button onclick="savePreviewedModule()" class="py-2 px-5 bg-cyan-600 hover:bg-cyan-500 text-gray-100 font-bold rounded-lg transition">Save Module</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tutorial Modal -->
+  <div id="tutorial-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 transition-opacity" style="display: none;">
+    <div class="glass fancy-border p-6 rounded-3xl relative max-w-2xl animate-pop w-[90%]">
+      <button onclick="closeTutorial()" class="absolute top-3 right-3 text-2xl text-cyan-200 hover:text-cyan-300 focus:outline-none"><i class="fas fa-times"></i></button>
+      
+      <div class="mb-4">
+        <h2 class="text-2xl font-bold text-cyan-200 mb-1">Getting Started with CNC AI Academy</h2>
+        <p class="text-gray-300 text-sm">Learn how to use this platform in just a few steps</p>
+      </div>
+      
+      <div id="tutorial-content" class="scrollbar overflow-y-auto pr-2 max-h-[70vh]">
+        <div class="tutorial-step" data-step="1">
+          <h3 class="text-lg font-semibold text-yellow-400 mb-2">Step 1: Set Your API Key</h3>
+          <p class="text-gray-200 mb-3">The platform uses OpenRouter to connect to AI models. Add your OpenRouter API key in the sidebar to get started.</p>
+          <div class="bg-gray-900 p-3 rounded-lg mb-4">
+            <ol class="list-decimal list-inside text-gray-300 space-y-2">
+              <li>Get your API key from <a href="https://openrouter.ai/" target="_blank" class="text-cyan-400 underline">OpenRouter.ai</a></li>
+              <li>Enter it in the "OpenRouter API Key" field</li>
+              <li>Click "Save Key"</li>
+            </ol>
+          </div>
+        </div>
+        
+        <div class="tutorial-step" data-step="2" style="display:none">
+          <h3 class="text-lg font-semibold text-yellow-400 mb-2">Step 2: Generate a Learning Module</h3>
+          <p class="text-gray-200 mb-3">Create custom CNC learning content tailored to your interests or challenges.</p>
+          <div class="bg-gray-900 p-3 rounded-lg mb-4">
+            <ol class="list-decimal list-inside text-gray-300 space-y-2">
+              <li>Enter a topic in the "Generate New Module" section</li>
+              <li>Choose your preferred learning style</li>
+              <li>Click "Generate Module"</li>
+            </ol>
+          </div>
+        </div>
+        
+        <div class="tutorial-step" data-step="3" style="display:none">
+          <h3 class="text-lg font-semibold text-yellow-400 mb-2">Step 3: Save Modules to Your Library</h3>
+          <p class="text-gray-200 mb-3">Build your personal collection of learning resources.</p>
+          <div class="bg-gray-900 p-3 rounded-lg mb-4">
+            <ul class="list-disc list-inside text-gray-300 space-y-2">
+              <li>Use the "Download Current Lesson" button to save as HTML</li>
+              <li>Modules are automatically saved to your library</li>
+              <li>Favorite modules by clicking the star icon</li>
+              <li>Access saved modules from the "My Learning Library" section</li>
+            </ul>
+          </div>
+        </div>
+        
+        <div class="tutorial-step" data-step="4" style="display:none">
+          <h3 class="text-lg font-semibold text-yellow-400 mb-2">Ready to Start!</h3>
+          <p class="text-gray-200 mb-3">You're all set to begin your CNC AI learning journey.</p>
+          <div class="bg-cyan-900 bg-opacity-30 p-4 rounded-lg">
+            <p class="text-cyan-100">Try generating a module about:</p>
+            <ul class="list-disc list-inside text-gray-300 mt-2 space-y-1">
+              <li>Optimizing G-code with machine learning</li>
+              <li>Computer vision for quality control in CNC</li>
+              <li>Predictive maintenance using AI</li>
+              <li>Parameter optimization for complex cuts</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+      <div class="flex justify-between mt-6">
+        <button id="tutorial-prev" class="py-2 px-4 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition" style="display:none">Previous</button>
+        <div class="tutorial-dots flex gap-2 items-center">
+          <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+          <span class="w-2 h-2 rounded-full bg-gray-500"></span>
+          <span class="w-2 h-2 rounded-full bg-gray-500"></span>
+          <span class="w-2 h-2 rounded-full bg-gray-500"></span>
+        </div>
+        <button id="tutorial-next" class="py-2 px-4 bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-medium rounded-lg transition">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Template Selection Modal -->
+  <div id="template-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 transition-opacity" style="display: none;">
+    <div class="glass fancy-border p-6 rounded-3xl relative max-w-3xl animate-pop w-[90%]">
+      <button onclick="closeTemplateModal()" class="absolute top-3 right-3 text-2xl text-cyan-200 hover:text-cyan-300 focus:outline-none"><i class="fas fa-times"></i></button>
+      <div class="mb-4">
+        <h2 class="text-2xl font-bold text-cyan-200 mb-1">CNC Learning Templates</h2>
+        <p class="text-gray-300 text-sm mb-4">Select a learning path template to quickly generate relevant content</p>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Template Cards -->
+        <div class="glass fancy-border p-4 rounded-xl hover:bg-cyan-900/20 transition-colors cursor-pointer template-card" data-template="g-code-optimization">
+          <h3 class="text-yellow-400 font-bold mb-2">G-Code Optimization</h3>
+          <p class="text-sm text-gray-300 mb-3">Learn how AI can analyze and optimize G-code for efficiency, reduced machining time, and better surface finish.</p>
+          <div class="text-xs text-cyan-400">Topics: Toolpath analysis, Parameter optimization, Machine learning</div>
+        </div>
+        
+        <div class="glass fancy-border p-4 rounded-xl hover:bg-cyan-900/20 transition-colors cursor-pointer template-card" data-template="predictive-maintenance">
+          <h3 class="text-yellow-400 font-bold mb-2">Predictive Maintenance</h3>
+          <p class="text-sm text-gray-300 mb-3">Harness AI to predict machine failures before they happen and optimize maintenance schedules.</p>
+          <div class="text-xs text-cyan-400">Topics: Sensor data, Anomaly detection, Maintenance planning</div>
+        </div>
+        
+        <div class="glass fancy-border p-4 rounded-xl hover:bg-cyan-900/20 transition-colors cursor-pointer template-card" data-template="computer-vision-inspection">
+          <h3 class="text-yellow-400 font-bold mb-2">Computer Vision QC</h3>
+          <p class="text-sm text-gray-300 mb-3">Implement computer vision systems to automate quality control and defect detection in CNC parts.</p>
+          <div class="text-xs text-cyan-400">Topics: Image processing, Defect detection, Automated inspection</div>
+        </div>
+        
+        <div class="glass fancy-border p-4 rounded-xl hover:bg-cyan-900/20 transition-colors cursor-pointer template-card" data-template="digital-twin">
+          <h3 class="text-yellow-400 font-bold mb-2">Digital Twin Technology</h3>
+          <p class="text-sm text-gray-300 mb-3">Create virtual replicas of physical CNC systems to simulate and optimize operations in real-time.</p>
+          <div class="text-xs text-cyan-400">Topics: Simulation, Real-time monitoring, Process optimization</div>
+        </div>
+        
+        <div class="glass fancy-border p-4 rounded-xl hover:bg-cyan-900/20 transition-colors cursor-pointer template-card" data-template="material-science">
+          <h3 class="text-yellow-400 font-bold mb-2">AI in Material Science</h3>
+          <p class="text-sm text-gray-300 mb-3">Discover how AI helps predict material behavior and optimize machining parameters for different materials.</p>
+          <div class="text-xs text-cyan-400">Topics: Material properties, Parameter prediction, Tool wear</div>
+        </div>
+        
+        <div class="glass fancy-border p-4 rounded-xl hover:bg-cyan-900/20 transition-colors cursor-pointer template-card" data-template="custom-template">
+          <h3 class="text-yellow-400 font-bold mb-2">Custom Template</h3>
+          <p class="text-sm text-gray-300 mb-3">Create your own custom learning topic.</p>
+          <div class="text-xs text-cyan-400">Define your own focus area and learning objectives</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Service Worker Registration ---
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('js/service-worker.js')
+          .then(registration => {
+            console.log('Service Worker registered with scope:', registration.scope);
+            showToast('App is now available offline!');
+            
+            // Check for updates
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  showToast('New content available. Refresh to update!');
+                }
+              });
+            });
+          })
+          .catch(error => {
+            console.error('Service Worker registration failed:', error);
+          });
+      });
+    }
+    
+    // --- Offline Detection ---
+    function updateOnlineStatus() {
+      const statusIndicator = document.getElementById('online-status');
+      if (!statusIndicator) return;
+      
+      if (navigator.onLine) {
+        statusIndicator.innerHTML = '<i class="fas fa-wifi text-green-400"></i>';
+        statusIndicator.title = 'Online Mode';
+      } else {
+        statusIndicator.innerHTML = '<i class="fas fa-wifi-slash text-yellow-400"></i>';
+        statusIndicator.title = 'Offline Mode - Limited functionality';
+        showToast('You are offline. Using cached content.');
+      }
+    }
+    
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    
+    // --- API Error Handling ---
+    function handleAPIError(error, context) {
+      let message = '';
+      
+      if (error.name === 'AbortError') {
+        message = 'Request timed out. Please try again.';
+      } else if (error.message && error.message.includes('NetworkError')) {
+        message = 'Network connection error. Please check your internet connection.';
+      } else if (error.response) {
+        // API returned an error response
+        switch (error.response.status) {
+          case 401:
+            message = 'Invalid API key. Please check your OpenRouter API key.';
+            break;
+          case 403:
+            message = 'Access denied. You may need to check your account permissions.';
+            break;
+          case 429:
+            message = 'Rate limit exceeded. Please wait a moment and try again.';
+            break;
+          case 500:
+          case 502:
+          case 503:
+          case 504:
+            message = 'OpenRouter service is currently unavailable. Please try again later.';
+            break;
+          default:
+            message = `API error (${error.response.status}): ${error.response.statusText || 'Unknown error'}`;
+        }
+      } else {
+        message = `Error during ${context}: ${error.message || 'Unknown error'}`;
+      }
+      
+      showToast(message, 5000);
+      console.error(`${context} error:`, error);
+      return message;
+    }
+    
+    // --- Module Library System ---
+    function closeBirthday() {
+      document.getElementById('birthday-modal').style.display = 'none';
+    }
+    function aboutModal() {
+      document.getElementById('about-modal').style.display = 'flex';
+    }
+    function closeAbout() {
+      document.getElementById('about-modal').style.display = 'none';
+    }
+    function closePreview() {
+      document.getElementById('preview-modal').style.display = 'none';
+    }
+    function closeTemplateModal() {
+      document.getElementById('template-modal').style.display = 'none';
+    }
+    // --- Tutorial System ---
+    let currentTutorialStep = 1;
+    const totalTutorialSteps = 4;
+    
+    function showTutorial() {
+      document.getElementById('tutorial-modal').style.display = 'flex';
+      updateTutorialStep(1); // Start at first step
+    }
+    
+    function closeTutorial() {
+      document.getElementById('tutorial-modal').style.display = 'none';
+      localStorage.setItem("cnc_ai_tutorial_seen", "1");
+    }
+    
+    function updateTutorialStep(step) {
+      // Update current step tracker
+      currentTutorialStep = step;
+      
+      // Hide all steps and show the current one
+      document.querySelectorAll('.tutorial-step').forEach((elem, index) => {
+        elem.style.display = (index + 1) === step ? 'block' : 'none';
+      });
+      
+      // Update navigation buttons
+      const prevButton = document.getElementById('tutorial-prev');
+      const nextButton = document.getElementById('tutorial-next');
+      
+      // Previous button visibility
+      prevButton.style.display = step > 1 ? 'block' : 'none';
+      
+      // Next button text for last step
+      if (step === totalTutorialSteps) {
+        nextButton.textContent = 'Get Started';
+      } else {
+        nextButton.textContent = 'Next';
+      }
+      
+      // Update progress dots
+      document.querySelectorAll('.tutorial-dots span').forEach((dot, index) => {
+        dot.classList.toggle('bg-gray-500', index + 1 !== step);
+        dot.classList.toggle('bg-cyan-400', index + 1 === step);
+      });
+    }
+    // --- Theming ---
+    function toggleTheme() {
+      document.body.classList.toggle("bg-gray-200");
+      document.body.classList.toggle("text-gray-900");
+      document.body.classList.toggle("text-gray-100");
+      const isDark = document.body.classList.contains("text-gray-100");
+      document.getElementById('theme-toggle').innerHTML = isDark 
+        ? '<i class="fas fa-moon"></i>' 
+        : '<i class="fas fa-sun"></i>';
+    }
+    // --- Toast ---
+    function showToast(msg, timeout=2500) {
+      const toast = document.getElementById('toast');
+     
+      toast.style.opacity = 1;
+      setTimeout(() => { toast.style.opacity = 0; }, timeout);
+    }
+    // --- Local Storage Utilities ---
+    function saveAPIKey(key) {
+      localStorage.setItem("cnc_ai_apikey", key);
+    }
+    function loadAPIKey() {
+      return localStorage.getItem("cnc_ai_apikey") || "";
+    }
+    function saveModel(model) {
+      localStorage.setItem("cnc_ai_model", model);
+    }
+    function loadModel() {
+      return localStorage.getItem("cnc_ai_model") || "openrouter/auto";
+    }
+    function saveCustomModels(models) {
+      localStorage.setItem("cnc_ai_custom_models", JSON.stringify(models));
+    }
+    function loadCustomModels() {
+      try {
+        return JSON.parse(localStorage.getItem("cnc_ai_custom_models")) || [];
+      } catch { return []; }
+    }
+    function saveLesson(lesson) {
+      localStorage.setItem("cnc_ai_active_lesson", JSON.stringify(lesson));
+    }
+    function loadLesson() {
+      try {
+        return JSON.parse(localStorage.getItem("cnc_ai_active_lesson") || "null");
+      } catch { return null; }
+    }
+    function clearLesson() {
+      localStorage.removeItem("cnc_ai_active_lesson");
+    }
+    function saveLibraryModule(lesson) {
+      // Get existing library or create new one
+      let library = loadLibrary();
+      
+      // Generate unique ID if not exists
+      if (!lesson.id) {
+        lesson.id = 'module-' + Date.now();
+      }
+      
+      // Add or update module in library
+      const existingIndex = library.findIndex(m => m.id === lesson.id);
+      if (existingIndex >= 0) {
+        library[existingIndex] = lesson;
+      } else {
+        library.push(lesson);
+      }
+      
+      // Save updated library
+      localStorage.setItem("cnc_ai_module_library", JSON.stringify(library));
+      
+      // Refresh library display
+      renderLibrary();
+      
+      return lesson.id;
+    }
+    
+    function loadLibrary() {
+      try {
+        return JSON.parse(localStorage.getItem("cnc_ai_module_library")) || [];
+      } catch {
+        return [];
+      }
+    }
+    
+    function deleteLibraryModule(moduleId) {
+      let library = loadLibrary();
+      library = library.filter(m => m.id !== moduleId);
+      localStorage.setItem("cnc_ai_module_library", JSON.stringify(library));
+      renderLibrary();
+    }
+    
+    function favoriteModule(moduleId, isFavorite = true) {
+      let library = loadLibrary();
+      const module = library.find(m => m.id === moduleId);
+      
+      if (module) {
+        module.favorite = isFavorite;
+        localStorage.setItem("cnc_ai_module_library", JSON.stringify(library));
+        renderLibrary();
+      }
+    }
+    
+    function renderLibrary() {
+      const library = loadLibrary();
+      const moduleList = document.getElementById('module-list');
+      const noModulesMsg = document.getElementById('no-modules-msg');
+      
+      // Clear current list
+      moduleList.innerHTML = '';
+      
+      if (library.length === 0) {
+        noModulesMsg.style.display = 'block';
+        return;
+      }
+      
+      noModulesMsg.style.display = 'none';
+      
+      // Sort by favorites first, then by timestamp (newest first)
+      library
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0))
+        .forEach(module => {
+          const moduleItem = document.createElement('li');
+          moduleItem.className = 'glass fancy-border p-3 rounded-xl relative hover:bg-cyan-900/20 transition-colors';
+          
+          // Format date
+          const moduleDate = new Date(module.timestamp);
+          const dateString = moduleDate.toLocaleDateString();
+          
+          // Create item
+          moduleItem.innerHTML = `
+            <div class="flex justify-between items-start">
+              <h4 class="font-semibold text-cyan-200 mb-1">${module.topic}</h4>
+              <div class="flex items-center">
+                <button class="favorite-btn text-sm px-1" data-id="${module.id}">
+                  <i class="fas fa-star ${module.favorite ? 'text-yellow-400' : 'text-gray-500'}"></i>
+                </button>
+              </div>
+            </div>
+            <p class="text-xs text-gray-400 mb-1">
+              <span class="italic">${module.style}</span> • ${dateString}
+            </p>
+            <div class="flex justify-between items-center mt-2">
+              <button class="load-btn text-xs px-2 py-1 bg-cyan-800 hover:bg-cyan-700 rounded-md" data-id="${module.id}">
+                Load
+              </button>
+              <button class="delete-btn text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded-md" data-id="${module.id}">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
+          `;
+          
+          moduleList.appendChild(moduleItem);
+          
+          // Add event listeners
+          moduleItem.querySelector('.load-btn').addEventListener('click', () => {
+            loadModuleFromLibrary(module.id);
+          });
+          
+          moduleItem.querySelector('.delete-btn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to delete this module?')) {
+              deleteLibraryModule(module.id);
+            }
+          });
+          
+          moduleItem.querySelector('.favorite-btn').addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            const isFavorite = btn.querySelector('i').classList.contains('text-yellow-400');
+            favoriteModule(module.id, !isFavorite);
+          });
+        });
+    }
+    
+    function loadModuleFromLibrary(moduleId) {
+      const library = loadLibrary();
+      const module = library.find(m => m.id === moduleId);
+      
+      if (module) {
+        saveLesson(module);
+        renderLesson(module);
+        
+        // Load notes for this module
+        const moduleNotes = getModuleNotes(module.id);
+        document.getElementById('module-notes').value = moduleNotes;
+        
+        // Show notes container if this module has notes
+        if (moduleNotes) {
+          document.getElementById('notes-container').style.display = 'block';
+        }
+        
+        showToast('Module loaded!');
+      }
+    }
+    
+    // --- On load: Fill settings/users' values
+    window.addEventListener('DOMContentLoaded', () => {
+      // Bday modal first visit
+      if (!localStorage.getItem("cnc_ai_birthday_seen")) {
+        document.getElementById('birthday-modal').style.display = 'flex';
+        localStorage.setItem("cnc_ai_birthday_seen", "1");
+      }
+      // API key
+      document.getElementById('api-key-input').value = loadAPIKey();
+      // Models
+      const loadedModel = loadModel();
+      document.getElementById('model-select').value = loadedModel;
+      // Custom models
+      const customs = loadCustomModels();
+      for(const mdl of customs) addModelOption(mdl, true);
+      // Load lesson if present
+      const lesson = loadLesson();
+      if(lesson) renderLesson(lesson);
+      
+      // Initialize library
+      renderLibrary();
+      
+      // Library toggle
+      document.getElementById('library-toggle').addEventListener('click', function() {
+        const content = document.getElementById('library-content');
+        const isVisible = content.style.display !== 'none';
+        
+        content.style.display = isVisible ? 'none' : 'block';
+        this.innerHTML = isVisible ? 
+          '<i class="fas fa-chevron-down"></i>' : 
+          '<i class="fas fa-chevron-up"></i>';
+      });
+      
+      // Search functionality
+      const searchInput = document.getElementById('library-search');
+      searchInput.addEventListener('input', function() {
+        searchModules(this.value.trim());
+      });
+      
+      // Category filters
+      document.querySelectorAll('.category-filter').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const category = this.getAttribute('data-category');
+          filterByCategory(category);
+        });
+      });
+      
+      // Show tutorial for first-time users
+      if (!localStorage.getItem("cnc_ai_tutorial_seen")) {
+        // Delay showing tutorial until after birthday modal (if it's shown)
+        setTimeout(() => {
+          if (document.getElementById('birthday-modal').style.display !== 'flex') {
+            showTutorial();
+          }
+        }, 1000);
+      }
+      
+      // Tutorial navigation buttons
+      document.getElementById('tutorial-next').addEventListener('click', () => {
+        if (currentTutorialStep < totalTutorialSteps) {
+          updateTutorialStep(currentTutorialStep + 1);
+        } else {
+          closeTutorial();
+        }
+      });
+      
+      document.getElementById('tutorial-prev').addEventListener('click', () => {
+        if (currentTutorialStep > 1) {
+          updateTutorialStep(currentTutorialStep - 1);
+        }
+      });
+      
+      // Notes system
+      const notesToggle = document.getElementById('notes-toggle');
+      const notesPanel = document.getElementById('notes-panel');
+      const closeNotes = document.getElementById('close-notes');
+      const saveNotesBtn = document.getElementById('save-notes');
+      
+      notesToggle.addEventListener('click', function() {
+        notesPanel.style.display = notesPanel.style.display === 'none' ? 'block' : 'none';
+      });
+      
+      closeNotes.addEventListener('click', function() {
+        notesPanel.style.display = 'none';
+      });
+      
+      saveNotesBtn.addEventListener('click', function() {
+        const lesson = loadLesson();
+        if (!lesson || !lesson.id) return;
+        
+        const notes = document.getElementById('module-notes').value;
+        saveModuleNotes(lesson.id, notes);
+      });
+      
+      // Template button
+      document.getElementById('show-templates-btn').addEventListener('click', function() {
+        showTemplateModal();
+      });
+      
+      // Share functionality
+      document.getElementById('copy-link-btn').addEventListener('click', copyShareLink);
+      document.getElementById('generate-pdf-btn').addEventListener('click', generatePDF);
+      
+      // Add a share button to the module area
+      const moduleArea = document.getElementById('module-area');
+      if (moduleArea) {
+        const shareBtn =
+        shareBtn.className = 'absolute top-4 right-4 bg-cyan-700 hover:bg-cyan-600 text-white p-2 rounded-lg';
+        shareBtn.innerHTML = '<i class="fas fa-share-alt mr-1"></i> Share';
+        shareBtn.addEventListener('click', showShareModal);
+        moduleArea.appendChild(shareBtn);
+      }
+      
+      // Learning paths button
+      if (moduleArea) {
+        const pathsBtn = document.createElement('button');
+        pathsBtn.className = 'absolute top-4 right-20 bg-indigo-700 hover:bg-indigo-600 text-white p-2 rounded-lg';
+        pathsBtn.innerHTML = '<i class="fas fa-compass mr-1"></i> Learning Paths';
+        pathsBtn.addEventListener('click', showLearningPathsModal);
+        moduleArea.appendChild(pathsBtn);
+      }
+      
+      // Check URL for shared module parameter
+      importSharedModule();
+    });
+    
+    // --- API Key Handlers ---
+    document.getElementById('save-api-btn').onclick = ()=>{
+      const key = document.getElementById('api-key-input').value.trim();
+      if(key.length<20) {showToast('Invalid API Key format.'); return;}
+      saveAPIKey(key);
+      showToast('API Key Saved!');
+    };
+    // --- Model handling ---
+    function addModelOption(model, isCustom=false) {
+      if(!model) return;
+      const sel = document.getElementById('model-select');
+      if([...sel.options].find(o=>o.value===model)) return;
+      const opt = document.createElement('option');
+      opt.value = model;
+      opt.text = isCustom ? `[Custom] ${model}` : model;
+      sel.appendChild(opt);
+    }
+    document.getElementById('add-model-btn').onclick=()=>{
+      let inp = document.getElementById('model-custom').value.trim();
+      if(!inp) return;
+      addModelOption(inp, true);
+      const customs = loadCustomModels();
+      if (!customs.includes(inp)) {
+        customs.push(inp);
+        saveCustomModels(customs);
+      }
+      showToast('Custom model added!');
+      document.getElementById('model-custom').value = '';
+    }
+    document.getElementById('model-select').onchange = function() {
+      saveModel(this.value);
+    };
+    // --- Lesson Handling ---
+    document.getElementById('reset-module').onclick = ()=>{
+      if(confirm("Are you sure you want to clear this lesson and start over?")) {
+        clearLesson();
+        hideLesson();
+      }
+    };
+    function hideLesson() {
+      document.getElementById('module-content').style.display = 'none';
+      document.getElementById('download-module').disabled = true;
+      document.getElementById('reset-module').disabled = true;
+      document.getElementById('module-placeholder').style.display = 'flex';
+    }
+    function renderLesson(lesson) {
+      // Hide placeholder, enable controls
+      document.getElementById('module-placeholder').style.display = 'none';
+      document.getElementById('module-content').style.display = '';
+      document.getElementById('download-module').disabled = false;
+      document.getElementById('reset-module').disabled = false;
+      // Render
+      document.getElementById('module-content').innerHTML = lessonToHTML(lesson);
+      // Interactive: Quiz and Code
+      setTimeout(()=>setupLessonInteractivity(), 130);
+    }
+    // --- Generator Form Handling ---
+    document.getElementById('module-gen-form').onsubmit = async function(e){
+      e.preventDefault();
+      // Validate
+      const topic = document.getElementById('module-topic').value.trim();
+      const style = document.getElementById('learning-style').value;
+      const apiKey = loadAPIKey();
+      const model = document.getElementById('model-select').value;
+      if(!apiKey || apiKey.length<20) {showToast("Please save a valid API key before generating."); return;}
+      if(!topic) {showToast("Please provide a learning topic."); return;}
+      // UI
+      document.getElementById('module-loading').style.display = '';
+      // Build system prompt
+      const sysPrompt = `You are an expert CNC instructor and AI educator. Generate a highly-structured interactive learning module dedicated to this topic: "${topic}". Format sections as Introduction, Key Concepts, Practical Project (or Theory/Case Study, pick best), Application in Modern CNC Shops, Interactive Quiz (multiple-choice), and Resource Links. The module should be geared towards curious CNC machinists looking to leverage AI in their work. All quiz answers should be unique.`;
+      
+      // Compose request
+      const body = {
+        model: model,
+        messages: [
+          {role: 'system', content: sysPrompt},
+          {role: 'user', content: 
+           `Topic: ${topic}
+            Learning Style: ${style}
+            Format: Module, ready for rendering in a modern web app.
+            Please include code examples or code block sections where relevant (especially for Automation/G-code).
+            Make sure all content is thorough yet clear and concise.`}
+        ],
+        max_tokens: 1800,
+        temperature: 0.77,
+        stream: false
+      };
+      try {
+        const completion = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        });
+        if(!completion.ok) throw new Error("Completion failed!");
+        const data = await completion.json();
+        const reply = data.choices[0]?.message?.content || 'No AI response received.';
+        // Parse the generated markdown/text into structured data
+        const lesson = parseLessonMarkdown(topic, style, reply);
+        saveLesson(lesson);
+        renderLesson(lesson);
+        showToast("Module generated!");
+      } catch (err) {
+        handleAPIError(err, 'Module Generation');
+      } finally {
+        document.getElementById('module-loading').style.display = 'none';
+      }
+    };
+    // --- Download as HTML --- 
+    document.getElementById('download-module').onclick = function() {
+      const lesson = loadLesson();
+      if(!lesson) return;
+      // Compose standalone HTML
+      const html = `<html><head><title>${lesson.topic} - CNC AI Academy Lesson</title>
+      <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css"/>
+      <meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+      <body class="bg-gray-900 text-cyan-100 px-10 py-8" style="font-family: Roboto, Arial, sans-serif;">
+      <div class="max-w-3xl mx-auto mb-10">
+        <h1 class="text-3xl font-bold mb-2">${lesson.topic}</h1>
+        <h2 class="text-xl text-yellow-300 mb-8">Learning Style: ${lesson.style}</h2>
+        ${lessonToHTML(lesson)}
+        <footer class="text-xs mt-10 text-center text-cyan-400">Generated with CNC AI Academy</footer>
+      </div></body></html>`;
+      // Download
+      const blob = new Blob([html], {type:'text/html'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = lesson.topic.toLowerCase().replace(/\s+/g,'_')+'_CNC_AI_Lesson.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
+    // --- Helper: Parse AI Response to Structured Lesson ---
+    function parseLessonMarkdown(topic, style, text) {
+      // Parse basic sections from generated markdown
+      // Enhanced section detection with multiple regex patterns
+      const sections = [];
+      let currSection = null, currContent = [];
+      const lines = text.split('\n');
+      
+      // Multiple regex patterns to catch different heading formats
+      const sectionRegexes = [
+        /^#{1,3} *([\w\d\- &().]+):? *$/i,                     // Markdown headings: ### Section Title
+        /^([\w\d\- &().]{3,50}):\s*$/i,                        // Title with colon: Section Title:
+        /^\*\*([\w\d\- &().]{3,50})\*\*\s*$/i,                 // Bold text as heading: **Section Title**
+        /^(\d+\.\s*[\w\d\- &().]{3,50})$/i                     // Numbered sections: 1. Section Title
+      ];
+      
+      for(const line of lines) {
+        // Check all regex patterns for section headers
+        let foundSection = false;
+        for (const regex of sectionRegexes) {
+          const match = line.match(regex);
+          if (match) {
+            if(currSection) {
+              sections.push({title: currSection, content: currContent.join('\n')});
+            }
+            currSection = match[1].trim();
+            currContent = [];
+            foundSection = true;
+            break;
+          }
+        }
+        
+        if (!foundSection) {
+          currContent.push(line);
+        }
+      }
+      
+      if(currSection) sections.push({title: currSection, content: currContent.join('\n')});
+      
+      // If not many sections found, try fallback detection
+      if(sections.length < 3) {
+        // Use fallback keywords for section detection
+        const possibleSections = [
+          'Introduction', 'Overview', 'Key Concepts', 'Background',
+          'Practical Project', 'Project', 'Hands-on', 'Workshop', 
+          'Theory', 'Theoretical Background', 'Case Study', 'Examples',
+          'Application', 'Application in Modern CNC Shops', 'Real-world Application',
+          'Quiz', 'Assessment', 'Test', 'Interactive Quiz', 'Self-assessment',
+          'Resources', 'Resource Links', 'Further Reading', 'References', 'Links'
+        ];
+        
+        // Reset for fallback parsing
+        let sectionName = null; 
+        currContent = [];
+        
+        for(const line of lines) {
+          // Check if line starts with any of the possible section names
+          const matchedSection = possibleSections.find(s => 
+            line.trim().toLowerCase().includes(s.toLowerCase()) &&
+            line.length < s.length + 20
+          );
+          
+          if(matchedSection) {
+            if(sectionName) sections.push({title: sectionName, content: currContent.join('\n')});
+            sectionName = matchedSection;
+            currContent = [];
+          } else {
+            currContent.push(line);
+          }
+        }
+        
+        if(sectionName) sections.push({title: sectionName, content: currContent.join('\n')});
+      }
+      
+      // Add any missing critical sections with placeholder content
+      const requiredSections = ['Introduction', 'Key Concepts', 'Quiz'];
+      for (const reqSection of requiredSections) {
+        if (!sections.some(s => s.title.toLowerCase().includes(reqSection.toLowerCase()))) {
+          sections.push({
+            title: reqSection,
+            content: reqSection === 'Quiz' ? 
+              'Q: Was this module helpful?\n1. Yes\n2. No\n*Answer: Yes*' :
+              `This ${reqSection.toLowerCase()} section was not explicitly provided in the generated content.`
+          });
+        }
+      }
+      
+      return {topic, style, sections, timestamp: new Date().toISOString()};
+    }
+    // --- Helper: Render Lesson to HTML ---
+    function lessonToHTML(lesson) {
+      let html = '';
+      for(const section of lesson.sections) {
+        if(!section.title || !section.content) continue;
+        const lower = section.title.toLowerCase();
+        html += `<section class="mb-8">
+          <h3 class="text-2xl section-title text-yellow-300 mb-3">${section.title}</h3>${
+            lower.includes("quiz") ? renderQuiz(section.content)
+            : lower.includes("code") || section.content.includes('```') ? renderCodeBlocks(section.content)
+            : lower.includes('resource') ? renderResources(section.content)
+            : "<div class='whitespace-pre-line text-cyan-100 leading-relaxed tracking-wide'>" +
+              section.content.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+              .replace(/\*(?!\*)(.*?)\*/g, '<i>$1</i>')
+              .replace(/\[(.*?)\]\((.*?)\)/g, '<a class="text-cyan-400 underline" href="$2" target="_blank">$1</a>')
+            + "</div>"
+        }</section>`;
+      }
+      return html;
+    }
+    function renderQuiz(content) {
+      // Try to extract questions/answers, Format: Q: ?  1. option .....   *Answer:*
+      const qs = [];
+      let lines = content.trim().split('\n'), q=null, opts=[];
+      lines.forEach(l=>{
+        let qMatch = l.match(/^[Qq][uestion]*[.:)]?\s*(.*)/);
+        if(qMatch) {
+          if(q) qs.push({q, opts, ans: null});
+          q = qMatch[1].trim(); opts=[];
+        } else if(/^\d+[\).] /.test(l)) opts.push(l.trim().replace(/^\d+[\).]\s*/,'')); 
+        else if(l.match(/^\*?Answer:?\/?/i)) {
+          if(qs.length && qs[qs.length-1]) qs[qs.length-1].ans = l.replace(/^\*?Answer:?\/?/i,'').trim();
+        }
+      });
+      if(q) qs.push({q, opts, ans: null});
+      if(!qs.length) return `<div class="italic text-gray-300">No quiz questions recognized.</div>`;
+      let html = `<form class="space-y-6" id="quiz-form">`;
+      qs.forEach((obj,i)=>{
+        html += `<div class="mb-5">
+            <h4 class="font-semibold text-lg text-cyan-200 mb-1">Q${i+1}: ${obj.q}</h4>
+            <div class="flex flex-col gap-1 mb-2">`
+          +obj.opts.map((o,j)=>`<label class="flex items-center gap-1 text-gray-200"><input type="radio" name="quiz-q${i}" value="${j}"><span>${o}</span></label>`).join("")
+          +`</div>
+          <div class="quiz-ans mt-1 text-cyan-400 text-sm" style="display:none"></div>
+        </div>`;
+      });
+      html+=`<button type="button" class="px-5 py-2 bg-yellow-400 text-cyan-900 font-bold rounded-lg mt-2" onclick="gradeQuiz()">Check Answers</button></form>`;
+      return html;
+    }
+    function renderCodeBlocks(content) {
+      // Support markdown ```lang\nblock``` with syntax highlighting
+      return content.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code){
+        const formattedCode = escapeHTML(code);
+        const langClass = lang ? `language-${lang}` : 'language-plaintext';
+        const codeHTML = `<pre class="bg-cyan-950 border border-cyan-800 rounded-xl p-4 overflow-x-auto text-left my-2"><code class="${langClass}">${formattedCode}</code></pre>`;
+        return codeHTML;
+      }).replace(/\n/g,'<br>');
+    }
+    
+    function escapeHTML(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+    // --- Interactivity: Quiz grading ---
+    window.gradeQuiz = function() {
+      const lesson = loadLesson();
+      if(!lesson) return;
+      // Try to find answers in markdown
+      const quizSec = lesson.sections.find(s=>/quiz/i.test(s.title));
+      if(!quizSec) return;
+      // Find answers
+      const lines = quizSec.content.split('\n');
+      let answerKeys = [];
+      for(const l of lines) if(l.match(/^\*?Answer:?/i)) answerKeys.push(l.replace(/^\*?Answer:?/i,'').trim().toLowerCase());
+      // Get user answers
+      const form = document.getElementById('quiz-form');
+      if(!form) return;
+      let correct = 0;
+      Array.from(form.querySelectorAll('.quiz-ans')).forEach(e=>e.style.display='block');
+      Array.from(form.querySelectorAll("input[type=radio]:checked")).forEach((input,i)=>{
+          const txt = input.parentElement.innerText.trim().toLowerCase();
+          if(txt.includes(answerKeys[i])) { correct++; input.parentElement.classList.add('text-green-400'); }
+          else input.parentElement.classList.add('text-red-400');
+          input.closest('div').querySelector('.quiz-ans').innerText = 'Correct answer: '+answerKeys[i];
+      });
+      showToast(`You got ${correct} out of ${answerKeys.length} correct!`);
+    };
+    function setupLessonInteractivity() {
+      // Find all quiz questions
+      const quizSections = document.querySelectorAll('.quiz-section');
+      
+      quizSections.forEach(section => {
+        const questions = section.querySelectorAll('.quiz-question');
+        const correctAnswer = section.getAttribute('data-correct');
+        
+        questions.forEach(question => {
+          const options = question.querySelectorAll('.quiz-option');
+          const correctAnswer = question.getAttribute('data-correct');
+          
+          options.forEach(option => {
+            option.addEventListener('click', function() {
+              // Remove any previously selected state
+              options.forEach(o => o.classList.remove('selected', 'correct', 'incorrect'));
+              
+              // Mark as selected
+              this.classList.add('selected');
+              
+              // Check if correct
+              const selectedValue = this.getAttribute('data-value');
+              if (selectedValue === correctAnswer) {
+                this.classList.add('correct');
+                showToast('Correct answer!', 2000);
+              } else {
+                this.classList.add('incorrect');
+                // Find and highlight correct answer
+                options.forEach(o => {
+                  if (o.getAttribute('data-value') === correctAnswer) {
+                    o.classList.add('correct');
+                  }
+                });
+                showToast('Incorrect. Try again!', 2000);
+              }
+            });
+          });
+        });
+      });
+      
+      // Apply syntax highlighting to code blocks
+      document.querySelectorAll('pre code').forEach(block => {
+        hljs.highlightElement(block);
+      });
+    }
+    // --- Module Preview ---
+    function previewModule(lesson) {
+      const previewModal = document.getElementById('preview-modal');
+      const previewContent = document.getElementById('preview-content');
+      
+      // Store the current lesson in a temporary variable for later save
+      window._tempPreviewLesson = lesson;
+      
+      // Render the lesson content in the preview modal
+      previewContent.innerHTML = lessonToHTML(lesson);
+      
+      // Show the preview modal
+      previewModal.style.display = 'flex';
+      
+      // Setup any interactivity in the preview
+      setTimeout(() => setupLessonInteractivity(), 130);
+    }
+    
+    function savePreviewedModule() {
+      if (window._tempPreviewLesson) {
+        // Save the previewed lesson
+        saveLesson(window._tempPreviewLesson);
+        renderLesson(window._tempPreviewLesson);
+        
+        // Close the preview modal
+        closePreview();
+        
+        showToast("Module saved to your dashboard!");
+      }
+    }
+    
+    // --- Search and Filter Modules ---
+    function searchModules(query) {
+      const library = loadLibrary();
+      if (!query || query.trim() === '') {
+        renderLibrary(); // Reset to show all modules
+        return;
+      }
+      
+      // Filter modules by the search query
+      const searchTerms = query.toLowerCase().split(' ');
+      const filteredModules = library.filter(module => {
+        // Search in topic, content sections, and style
+        const topicMatch = module.topic.toLowerCase().includes(query.toLowerCase());
+        const styleMatch = module.style.toLowerCase().includes(query.toLowerCase());
+        
+        // Search in section content
+        const contentMatch = module.sections.some(section => 
+          section.title.toLowerCase().includes(query.toLowerCase()) || 
+          section.content.toLowerCase().includes(query.toLowerCase())
+        );
+        
+        // Check if multiple search terms are all present
+        const multiTermMatch = searchTerms.every(term => 
+          module.topic.toLowerCase().includes(term) ||
+          module.style.toLowerCase().includes(term) ||
+          module.sections.some(section => 
+            section.title.toLowerCase().includes(term) || 
+            section.content.toLowerCase().includes(term)
+          )
+        );
+        
+        return topicMatch || styleMatch || contentMatch || multiTermMatch;
+      });
+      
+      // Render filtered modules
+      renderFilteredModules(filteredModules);
+    }
+    
+    function renderFilteredModules(modules) {
+      const moduleList = document.getElementById('module-list');
+      const noModulesMsg = document.getElementById('no-modules-msg');
+      const moduleCount = document.getElementById('module-count');
+      
+      // Clear current list
+      moduleList.innerHTML = '';
+      
+      if (modules.length === 0) {
+        noModulesMsg.style.display = 'block';
+        noModulesMsg.innerHTML = '<i class="fas fa-search mr-1"></i> No matching modules found';
+        moduleCount.textContent = '0';
+        return;
+      }
+      
+      noModulesMsg.style.display = 'none';
+      moduleCount.textContent = modules.length;
+      
+      // Sort by favorites first, then by timestamp (newest first)
+      modules
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .sort((a, b) => (b.favorite ? 1 : 0) - (a.favorite ? 1 : 0))
+        .forEach(module => {
+          // Render module item (same as in renderLibrary)
+          const moduleItem = document.createElement('li');
+          moduleItem.className = 'glass fancy-border p-3 rounded-xl relative hover:bg-cyan-900/20 transition-colors';
+          
+          // Format date
+          const moduleDate = new Date(module.timestamp);
+          const dateString = moduleDate.toLocaleDateString();
+          
+          // Create item
+          moduleItem.innerHTML = `
+            <div class="flex justify-between items-start">
+              <h4 class="font-semibold text-cyan-200 mb-1">${module.topic}</h4>
+              <div class="flex items-center">
+                <button class="favorite-btn text-sm px-1" data-id="${module.id}">
+                  <i class="fas fa-star ${module.favorite ? 'text-yellow-400' : 'text-gray-500'}"></i>
+                </button>
+              </div>
+            </div>
+            <p class="text-xs text-gray-400 mb-1">
+              <span class="italic">${module.style}</span> • ${dateString}
+            </p>
+            <div class="flex justify-between items-center mt-2">
+              <button class="load-btn text-xs px-2 py-1 bg-cyan-800 hover:bg-cyan-700 rounded-md" data-id="${module.id}">
+                Load
+              </button>
+              <button class="delete-btn text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded-md" data-id="${module.id}">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
+          `;
+          
+          moduleList.appendChild(moduleItem);
+          
+          // Add event listeners
+          moduleItem.querySelector('.load-btn').addEventListener('click', () => {
+            loadModuleFromLibrary(module.id);
+          });
+          
+          moduleItem.querySelector('.delete-btn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to delete this module?')) {
+              deleteLibraryModule(module.id);
+            }
+          });
+          
+          moduleItem.querySelector('.favorite-btn').addEventListener('click', (e) => {
+            const btn = e.currentTarget;
+            const isFavorite = btn.querySelector('i').classList.contains('text-yellow-400');
+            favoriteModule(module.id, !isFavorite);
+          });
+        });
+    }
+    
+    function filterByCategory(category) {
+      const library = loadLibrary();
+      
+      // Reset all filter buttons
+      document.querySelectorAll('.category-filter').forEach(btn => {
+        btn.classList.remove('bg-cyan-800');
+      });
+      
+      // Highlight the selected filter button
+      document.querySelector(`.category-filter[data-category="${category}"]`).classList.add('bg-cyan-800');
+      
+      let filteredModules = [];
+      
+      switch (category) {
+        case 'favorites':
+          filteredModules = library.filter(module => module.favorite === true);
+          break;
+        case 'recent':
+          // Get modules from the last 7 days
+          const oneWeekAgo = new Date();
+          oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+          filteredModules = library.filter(module => new Date(module.timestamp) > oneWeekAgo);
+          break;
+        default:
+          // 'all' or any custom category
+          filteredModules = library;
+          break;
+      }
+      
+      renderFilteredModules(filteredModules);
+    }
+    
+    // --- Learning Path System ---
+    function showLearningPathsModal() {
+      const library = loadLibrary();
+      
+      if (library.length < 1) {
+        showToast('Generate some modules first to receive learning path suggestions');
+        return;
+      }
+      
+      // Generate learning path suggestions
+      generateLearningPathSuggestions();
+      
+      // Show the modal
+      document.getElementById('learning-paths-modal').style.display = 'flex';
+    }
+    
+    function closeLearningPathsModal() {
+      document.getElementById('learning-paths-modal').style.display = 'none';
+    }
+    
+    function generateLearningPathSuggestions() {
+      const library = loadLibrary();
+      const learningPathsContent = document.getElementById('learning-paths-content');
+      
+      // Clear existing content
+      learningPathsContent.innerHTML = '';
+      
+      // Create a map of topics to find patterns
+      const topicWords = library
+        .map(module => module.topic.toLowerCase().split(/\s+/))
+        .flat()
+        .filter(word => word.length > 3); // Skip short words
+      
+      // Count word frequencies
+      const wordFrequency = {};
+      topicWords.forEach(word => {
+        wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+      });
+      
+      // Find most common interests
+      const topInterests = Object.entries(wordFrequency)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(entry => entry[0]);
+      
+      // Get completed module topics
+      const completedTopics = library.map(module => module.topic.toLowerCase());
+      
+      // Suggest paths based on templates and interests
+      const suggestionSets = [
+        {
+          title: "Based on Your Interests",
+          description: "Topics aligned with your most explored areas",
+          suggestions: generateInterestSuggestions(topInterests, completedTopics)
+        },
+        {
+          title: "Recommended Learning Path",
+          description: "A structured sequence to build your CNC AI knowledge",
+          suggestions: generateSequenceSuggestions(completedTopics)
+        },
+        {
+          title: "Expand Your Horizons",
+          description: "Topics to explore new areas of CNC and AI integration",
+          suggestions: generateNewAreaSuggestions(completedTopics, topInterests)
+        }
+      ];
+      
+      // Render each suggestion set
+      suggestionSets.forEach(set => {
+        const setElement = document.createElement('div');
+        setElement.className = 'border-b border-cyan-800/30 pb-4';
+        setElement.innerHTML = `
+          <h3 class="text-lg font-semibold text-yellow-400 mb-2">${set.title}</h3>
+          <p class="text-sm text-gray-300 mb-3">${set.description}</p>
+          <div class="space-y-2">
+            ${set.suggestions.map(suggestion => `
+              <div class="glass fancy-border p-3 rounded-xl hover:bg-cyan-900/20 transition-colors cursor-pointer suggestion-item" data-topic="${suggestion.topic}">
+                <h4 class="font-medium text-cyan-200">${suggestion.topic}</h4>
+                <p class="text-xs text-gray-400">${suggestion.description}</p>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        
+        learningPathsContent.appendChild(setElement);
+      });
+      
+      // Add event listeners to suggestion items
+      document.querySelectorAll('.suggestion-item').forEach(item => {
+        item.addEventListener('click', function() {
+          const topic = this.getAttribute('data-topic');
+          document.getElementById('module-topic').value = topic;
+          closeLearningPathsModal();
+          showToast(`Topic set: ${topic}`);
+        });
+      });
+    }
+    
+    function generateInterestSuggestions(interests, completedTopics) {
+      const allSuggestions = [
+        {
+          topic: `Advanced ${interests[0] || 'CNC'} Optimization with Machine Learning`,
+          description: "Explore advanced techniques for optimization using the latest ML algorithms"
+        },
+        {
+          topic: `${interests[0] || 'CNC'} and ${interests[1] || 'AI'} Integration: Best Practices`,
+          description: "Comprehensive guide to integrating these technologies effectively"
+        },
+        {
+          topic: `Future of ${interests[0] || 'CNC'} in Industry 4.0`,
+          description: "How these technologies will evolve in the smart factory environment"
+        }
+      ];
+      
+      // Filter out suggestions that are too similar to completed topics
+      return allSuggestions.filter(suggestion => 
+        !completedTopics.some(topic => 
+          topic.includes(suggestion.topic.toLowerCase().split(' ').slice(0, 3).join(' '))
+        )
+      );
+    }
+    
+    function generateSequenceSuggestions(completedTopics) {
+      // Core learning path topics
+      const corePath = [
+        {
+          topic: "Introduction to AI in CNC Manufacturing",
+          description: "Foundational concepts and applications of AI in CNC machining"
+        },
+        {
+          topic: "Machine Learning for Toolpath Optimization",
+          description: "How ML algorithms can improve machining efficiency and quality"
+        },
+        {
+          topic: "Predictive Maintenance Systems for CNC Machines",
+          description: "Using data and algorithms to prevent costly downtime"
+        },
+        {
+          topic: "Computer Vision for Quality Inspection",
+          description: "Automating quality control processes with visual recognition systems"
+        },
+        {
+          topic: "Digital Twins in CNC Manufacturing",
+          description: "Creating virtual replicas for simulation and optimization"
+        },
+        {
+          topic: "Advanced Material Analysis with AI",
+          description: "Using AI to predict and optimize material behaviors during machining"
+        }
+      ];
+      
+      // Filter out topics that have been completed
+      return corePath.filter(path => 
+        !completedTopics.some(topic => 
+          topic.includes(path.topic.toLowerCase())
+        )
+      ).slice(0, 3);
+    }
+    
+    function generateNewAreaSuggestions(completedTopics, interests) {
+      const newAreas = [
+        {
+          topic: "Generative Design for CNC Parts",
+          description: "Using AI to create optimized part designs ready for CNC machining"
+        },
+        {
+          topic: "Natural Language Processing for CNC Programming",
+          description: "Converting natural language instructions into G-code"
+        },
+        {
+          topic: "Reinforcement Learning in Manufacturing Processes",
+          description: "Teaching machines to optimize processes through trial and error"
+        },
+        {
+          topic: "Edge AI for Real-time CNC Monitoring",
+          description: "Implementing AI directly on CNC machines for instant feedback"
+        },
+        {
+          topic: "CNC Cybersecurity in the Age of AI",
+          description: "Protecting connected CNC systems from emerging threats"
+        }
+      ];
+      
+      // Filter out topics that are too similar to completed ones or aligned with interests
+      return newAreas.filter(area => 
+        !completedTopics.some(topic => topic.includes(area.topic.toLowerCase().split(' ').slice(0, 2).join(' '))) &&
+        !interests.some(interest => area.topic.toLowerCase().includes(interest))
+      ).slice(0, 3);
+    }
+  </script>
+
+  <!-- Note-taking Feature -->
+  <div id="notes-container" class="fixed bottom-4 right-4 z-30" style="display: none;">
+    <button id="notes-toggle" class="bg-cyan-600 hover:bg-cyan-500 text-white p-3 rounded-full shadow-lg">
+      <i class="fas fa-sticky-note"></i>
+    </button>
+    
+    <div id="notes-panel" class="glass fancy-border p-4 rounded-xl shadow-xl max-w-md w-[90vw] md:w-96 absolute bottom-14 right-0" style="display: none;">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="font-bold text-lg text-yellow-400">My Notes</h3>
+        <button id="close-notes" class="text-cyan-300 hover:text-cyan-100">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      
+      <textarea id="module-notes" placeholder="Add notes about this module here..." 
+                class="w-full h-40 bg-gray-800 text-cyan-100 p-3 rounded-lg resize-none border border-cyan-900 focus:outline-none focus:border-cyan-400"></textarea>
+      
+      <div class="flex justify-end mt-2">
+        <button id="save-notes" class="px-4 py-1 bg-cyan-700 hover:bg-cyan-600 text-cyan-100 rounded-lg text-sm">
+          Save Notes
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Share Module Modal -->
+  <div id="share-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 transition-opacity" style="display: none;">
+    <div class="glass fancy-border p-6 rounded-3xl relative animate-pop w-[90%] max-w-2xl">
+      <button onclick="closeShareModal()" class="absolute top-3 right-3 text-2xl text-cyan-200 hover:text-cyan-300 focus:outline-none"><i class="fas fa-times"></i></button>
+      <div class="mb-4">
+        <h2 class="text-2xl font-bold text-cyan-200 mb-1">Share Module</h2>
+        <p class="text-gray-300 text-sm mb-4">Share this learning module with other machinists</p>
+      </div>
+      
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-cyan-200 mb-1">Module Link</label>
+          <div class="flex">
+            <input id="share-link" type="text" readonly class="bg-gray-800 text-cyan-100 p-2 rounded-l-lg border border-cyan-900 flex-grow" />
+            <button id="copy-link-btn" class="bg-cyan-700 hover:bg-cyan-600 text-white px-3 py-2 rounded-r-lg">
+              <i class="fas fa-copy"></i>
+            </button>
+          </div>
+          <p class="text-xs text-gray-400 mt-1">This link will let others view and import your module</p>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-cyan-200 mb-1">Share as PDF</label>
+          <button id="generate-pdf-btn" class="bg-indigo-700 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg w-full flex items-center justify-center">
+            <i class="fas fa-file-pdf mr-2"></i> Generate PDF
+          </button>
+        </div>
+
+        <div class="border-t border-gray-700 pt-4">
+          <label class="block text-sm font-medium text-cyan-200 mb-1">Share on Social</label>
+          <div class="flex gap-2">
+            <button class="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg flex-grow" onclick="shareSocial('linkedin')">
+              <i class="fab fa-linkedin mr-1"></i> LinkedIn
+            </button>
+            <button class="bg-blue-800 hover:bg-blue-700 text-white p-2 rounded-lg flex-grow" onclick="shareSocial('facebook')">
+              <i class="fab fa-facebook mr-1"></i> Facebook
+            </button>
+            <button class="bg-cyan-600 hover:bg-cyan-500 text-white p-2 rounded-lg flex-grow" onclick="shareSocial('twitter')">
+              <i class="fab fa-twitter mr-1"></i> Twitter
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="mt-6 flex justify-end">
+        <button onclick="closeShareModal()" class="py-2 px-4 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg transition">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Learning Path Suggestions Modal -->
+  <div id="learning-paths-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80 transition-opacity" style="display: none;">
+    <div class="glass fancy-border p-6 rounded-3xl relative max-w-3xl animate-pop w-[90%] max-h-[80vh] overflow-y-auto">
+      <button onclick="closeLearningPathsModal()" class="absolute top-3 right-3 text-2xl text-cyan-200 hover:text-cyan-300 focus:outline-none"><i class="fas fa-times"></i></button>
+      
+      <div class="mb-4">
+        <h2 class="text-2xl font-bold text-cyan-200 mb-1">Recommended Learning Paths</h2>
+        <p class="text-gray-300 text-sm mb-4">Based on your completed modules, here are some suggested topics to explore next</p>
+      </div>
+      
+      <div id="learning-paths-content" class="space-y-4">
+        <!-- Content will bedynamically -->
+      </div>
+      
+      <div class="mt-6 flex justify-end">
+        <button onclick="closeLearningPathsModal()" class="py-2 px-4 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg transition">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Notes System ---
+    function showNotes() {
+      document.getElementById('notes-container').style.display = 'block';
+    }
+    
+    function saveModuleNotes(moduleId, notes) {
+      if (!moduleId) return;
+      
+      // Get existing notes
+      let notesData = loadModuleNotes();
+      
+      // Update notes for this module
+      notesData[moduleId] = notes;
+      
+      // Save to local storage
+      localStorage.setItem("cnc_ai_module_notes", JSON.stringify(notesData));
+      showToast("Notes saved!");
+    }
+    
+    function loadModuleNotes() {
+      try {
+        return JSON.parse(localStorage.getItem("cnc_ai_module_notes")) || {};
+      } catch {
+        return {};
+      }
+    }
+    
+    function getModuleNotes(moduleId) {
+      if (!moduleId) return '';
+      
+      const notes = loadModuleNotes();
+      return notes[moduleId] || '';
+    }
+    
+    // --- Share System ---
+    function showShareModal() {
+      const lesson = loadLesson();
+      if (!lesson) {
+        showToast('No module to share. Please load or generate a module first.');
+        return;
+      }
+      
+      // Generate the share link
+      const shareLink = generateShareLink(lesson);
+      document.getElementById('share-link').value = shareLink;
+      
+      // Show the modal
+      document.getElementById('share-modal').style.display = 'flex';
+    }
+    
+    function closeShareModal() {
+      document.getElementById('share-modal').style.display = 'none';
+    }
+    
+    function generateShareLink(lesson) {
+      // Create a shareable version of the lesson
+      const shareData = {
+        id: lesson.id || `module-${Date.now()}`,
+        topic: lesson.topic,
+        style: lesson.style,
+        timestamp: lesson.timestamp,
+        sections: lesson.sections
+      };
+      
+      // Encode lesson data
+      const encodedData = encodeURIComponent(btoa(JSON.stringify(shareData)));
+      
+      // Create a shareable link
+      // In a real app, this would be a proper URL with a server backend
+      // For demo purposes, we're using a data parameter approach
+      return `${window.location.href.split('?')[0]}?shared=${encodedData}`;
+    }
+    
+    function importSharedModule() {
+      // Check URL for shared module parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      const sharedData = urlParams.get('shared');
+      
+      if (sharedData) {
+        try {
+          // Decode and parse shared module
+          const moduleData = JSON.parse(atob(decodeURIComponent(sharedData)));
+          
+          // Load the shared module
+          saveLesson(moduleData);
+          renderLesson(moduleData);
+          
+          // Also save to library
+          saveLibraryModule(moduleData);
+          
+          showToast('Shared module loaded successfully!');
+          
+          // Clean URL to prevent reloading on refresh
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } catch (error) {
+          console.error('Failed to load shared module:', error);
+          showToast('Failed to load shared module. Invalid data format.');
+        }
+      }
+    }
+    
+    function copyShareLink() {
+      const linkInput = document.getElementById('share-link');
+      linkInput.select();
+      document.execCommand('copy');
+      showToast('Link copied to clipboard!');
+    }
+    
+    function generatePDF() {
+      const lesson = loadLesson();
+      if (!lesson) {
+        showToast('No module to export. Please load or generate a module first.');
+        return;
+      }
+      
+      showToast('Preparing PDF for download...');
+      
+      // In a production app, we would use a proper PDF library
+      // For demo purposes, we'll use the print-to-PDF functionality
+      
+      // Create printable version
+      const printContent = `<!DOCTYPE html>
+        <html>
+        <head>
+          <title>${lesson.topic} - CNC AI Academy</title>
+          <style>
+            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+            h1 { color: #0c4a6e; }
+            h2 { color: #0891b2; margin-top: 30px; }
+            pre { background: #f1f5f9; padding: 10px; border-radius: 5px; overflow-x: auto; }
+            .info { color: #64748b; font-style: italic; }
+            .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #94a3b8; }
+          </style>
+        </head>
+        <body>
+          <h1>${lesson.topic}</h1>
+          <p class="info">Learning Style: ${lesson.style}</p>
+          <p class="info">Generated: ${new Date(lesson.timestamp).toLocaleDateString()}</p>
+          
+          ${lesson.sections.map(section => `
+
+            <h2>${section.title}</h2>
+            <div>${section.content.replace(/\n/g, '<br>')}</div>
+          `).join('')}
+          
+          <div class="footer">
+            Generated with CNC AI Academy<br>
+            For: Your CNC Machining Journey
+          </div>
+        </body>
+        </html>`;
+      
+      // Open in new window for printing 
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+      
+      // Trigger print dialog
+      setTimeout(() => {
+        printWindow.print();
+        showToast('PDF download ready!');
+      }, 500);
+    }
+    
+    function shareSocial(platform) {
+      const lesson = loadLesson();
+      if (!lesson) {
+        showToast('No module to share. Please load or generate a module first.');
+        return;
+      }
+      
+      // Generate share link if not already present
+      const shareLink = document.getElementById('share-link').value || generateShareLink(lesson);
+      
+      // Prepare share text
+      const shareText = `Check out this CNC AI Academy learning module: "${lesson.topic}"`;
+      
+      // Platform-specific sharing URLs
+      let shareUrl;
+      switch (platform) {
+        case 'twitter':
+          shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareLink)}`;
+          break;
+        case 'facebook':
+          shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareLink)}&quote=${encodeURIComponent(shareText)}`;
+          break;
+        case 'linkedin':
+          shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareLink)}`;
+          break;
+        default:
+          return;
+      }
+      
+      // Open sharing window
+      window.open(shareUrl, '_blank', 'width=600,height=400');
+    }
+  </script>
+</body>
+</html>

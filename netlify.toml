@@ -1,0 +1,18 @@
+[build]
+  publish = "."
+  command = ""  # No build command needed since this is a static site
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[headers]
+  # Define which paths this specific [[headers]] block will cover
+  for = "/*"
+    [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Content-Security-Policy = "default-src 'self' https:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net/; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net/; img-src 'self' data: https:; connect-src 'self' https://openrouter.ai/;"
